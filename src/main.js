@@ -5,7 +5,6 @@ import { getCtx, playDtmf, startRingback, playPickup, playEndBeep } from "./audi
 
 const app = document.getElementById("app");
 const themeMeta = document.querySelector('meta[name="theme-color"]');
-const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
 /* ---------- Estado ---------- */
 const load = (k, fallback) => {
@@ -22,12 +21,7 @@ const state = {
   palabra: saved.palabra || "",
   number: "",
   recents: load("recientes", []),
-  barra: { bat: 80, red: "LTE", ...load("barra", {}) },
 };
-
-// Instalada en la pantalla de inicio, la barra de estado real de iOS queda con texto blanco (para la
-// pantalla de llamada). Sobre el teclado claro ese texto no se ve, así que ahí se dibuja una igual en oscuro.
-const standalone = navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
 
 const secreto = () => {
   const palabra = state.palabra.trim();
@@ -45,13 +39,10 @@ function fit() {
 window.addEventListener("resize", fit);
 fit();
 
-function setChrome(kind) {
-  // kind: "dark" (selección y llamada) | "phone" (teclado, sigue el modo del sistema)
-  const color = kind === "dark" ? "#000000" : darkQuery.matches ? "#000000" : "#ffffff";
-  themeMeta.setAttribute("content", color);
-  document.body.style.backgroundColor = color;
+function setChrome() {
+  themeMeta.setAttribute("content", "#ffffff");
+  document.body.style.backgroundColor = "#ffffff";
 }
-darkQuery.addEventListener("change", () => { if (state.screen === "phone") setChrome("phone"); });
 
 /* ---------- Micrófono: el permiso se pide en la primera pantalla, nunca al marcar ---------- */
 let micGranted = false;
@@ -70,27 +61,6 @@ function requestMic() {
   }
   return micPending;
 }
-
-/* ---------- Barra de estado dibujada (solo instalada y en modo claro) ---------- */
-function horaActual() {
-  return new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).replace(/\s?[ap]\.?\s?m\.?/i, "").trim();
-}
-function statusBar() {
-  if (!standalone || darkQuery.matches) return "";
-  const bat = Math.max(1, Math.min(100, Number(state.barra.bat) || 80));
-  const red = state.barra.red === "WiFi"
-    ? '<svg class="sb-wifi" viewBox="0 0 24 17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round"><path d="M2.2 6.200a14 14 0 0 1 19.600 0"/><path d="M6 10a8.600 8.600 0 0 1 12 0"/><circle cx="12" cy="14" r="1.600" fill="currentColor" stroke="none"/></svg>'
-    : `<span class="sb-net">${esc(state.barra.red)}</span>`;
-  return `<div class="sb" aria-hidden="true">
-    <span class="sb-time" id="sbTime">${horaActual()}</span>
-    <span class="sb-right">
-      <span class="sb-bars"><i></i><i></i><i></i><i></i></span>
-      ${red}
-      <span class="sb-bat"><b style="width:${bat}%"></b><em>${bat}</em></span>
-    </span>
-  </div>`;
-}
-setInterval(() => { const el = document.getElementById("sbTime"); if (el) el.textContent = horaActual(); }, 10000);
 
 /* ---------- Iconos ---------- */
 const HANDSET = '<path fill="currentColor" d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>';
@@ -129,13 +99,6 @@ function renderSetup() {
         <input id="word" type="text" inputmode="text" enterkeyhint="go" placeholder="Escribe la palabra…" maxlength="40"
           autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(state.palabra)}" />
         <button class="clear" id="clearWord" aria-label="Borrar">×</button>
-      </div>
-    </section>
-    <section class="setup-block bar-block">
-      <h2>Barra de estado (modo claro)</h2>
-      <div class="bar-row">
-        <label>Batería <input id="bat" type="number" inputmode="numeric" min="1" max="100" value="${Number(state.barra.bat) || 80}" /> %</label>
-        <div class="net">${["LTE", "5G", "WiFi"].map((r) => `<button class="chip ${state.barra.red === r ? "on" : ""}" data-red="${r}">${r === "WiFi" ? "Wi-Fi" : r}</button>`).join("")}</div>
       </div>
     </section>
     <button class="next" id="next">Next</button>`;
@@ -179,14 +142,6 @@ function renderSetup() {
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); goNext(); } });
   app.querySelector("#clearWord").addEventListener("click", () => { state.palabra = ""; input.value = ""; input.focus(); sync(); });
   app.querySelector("#next").addEventListener("click", goNext);
-  app.querySelector("#bat").addEventListener("input", (e) => { state.barra.bat = e.target.value; save("barra", state.barra); });
-  app.querySelectorAll("[data-red]").forEach((b) =>
-    b.addEventListener("click", () => {
-      state.barra.red = b.dataset.red;
-      save("barra", state.barra);
-      app.querySelectorAll("[data-red]").forEach((x) => x.classList.toggle("on", x === b));
-    }),
-  );
 
   async function goNext() {
     if (!secreto()) return;
@@ -240,7 +195,7 @@ function renderPhone() {
   }
 
   const tabs = [["rec", "Llamadas", "clock"], ["con", "Contactos", "person"], ["key", "Teclado", "keypad"]];
-  app.innerHTML = `${statusBar()}${body}
+  app.innerHTML = `${body}
     <nav class="tabbar">${tabs.map(([id, label, icon]) => `
       <button class="tab ${state.tab === id ? "on" : ""}" data-tab="${id}">
         <span class="tab-icon">${ICON[icon](27)}</span>

@@ -1,4 +1,4 @@
-/* 1rem = 1 punto del diseño (iPhone 17 Pro: 402 × 874). La escala se fija en main.js. */
+/* 1rem = 1 punto del diseño (iPhone 17 Pro: 402 × 874). Solo modo claro. */
 :root {
   --bg: #ffffff;
   --fg: #000000;
@@ -14,23 +14,6 @@
   --line: rgba(60, 60, 67, 0.16);
   --green: #67ce67;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #000000;
-    --fg: #ffffff;
-    --key: #1e1e20;
-    --key-down: #5a5a5f;
-    --key-shadow: 0 0 0 0.5rem rgba(255, 255, 255, 0.06);
-    --glass: rgba(34, 34, 36, 0.92);
-    --glass-shadow: 0 0 0 0.5rem rgba(255, 255, 255, 0.08);
-    --tab-on-bg: #3a3a3d;
-    --blue: #3f8cff;
-    --cutout: #222224;
-    --muted: #98989f;
-    --line: rgba(84, 84, 88, 0.6);
-    --green: #34c759;
-  }
-}
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; }
@@ -40,57 +23,38 @@ body {
   -webkit-font-smoothing: antialiased;
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
   touch-action: manipulation;
-  background: #000;
+  background: #ffffff;
 }
 button { font: inherit; color: inherit; border: 0; background: none; padding: 0; margin: 0; cursor: pointer; -webkit-appearance: none; appearance: none; }
 [hidden] { display: none !important; }
 .screen { position: absolute; inset: 0; overflow: hidden; }
-.red { color: #ff453a; }
 
 /* ---------- Selección ---------- */
-.setup { background: #000; color: #fff; display: flex; flex-direction: column; gap: 14rem;
+.setup { background: #fff; color: #000; display: flex; flex-direction: column; gap: 14rem;
   padding: calc(env(safe-area-inset-top) + 14rem) 18rem calc(env(safe-area-inset-bottom) + 14rem); }
 .setup-current { text-align: center; font-size: 40rem; font-weight: 600; min-height: 52rem; line-height: 52rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.setup-block { background: #151517; border-radius: 18rem; padding: 12rem 14rem 14rem; transition: opacity 0.15s; }
+.setup-current .red { color: #ff3b30; }
+.setup-block { background: #f2f2f7; border-radius: 18rem; padding: 12rem 14rem 14rem; transition: opacity 0.15s; }
 .setup-block.dim { opacity: 0.38; }
-.setup-block h2 { margin: 0 0 9rem; font-size: 12rem; font-weight: 600; letter-spacing: 1.2rem; text-transform: uppercase; color: #8e8e93; }
+.setup-block h2 { margin: 0 0 9rem; font-size: 12rem; font-weight: 600; letter-spacing: 1.2rem; text-transform: uppercase; color: #6c6c70; }
 .values { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7rem; }
 .suits { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7rem; margin-top: 9rem; }
-.chip { height: 46rem; border-radius: 11rem; background: #2a2a2d; color: #fff; font-size: 19rem; font-weight: 600; }
+.chip { height: 46rem; border-radius: 11rem; background: #fff; color: #000; font-size: 19rem; font-weight: 600;
+  box-shadow: 0 0 0 0.6rem rgba(60, 60, 67, 0.14) inset; }
 .chip.suit { height: 54rem; font-size: 27rem; }
-.chip.suit.red { color: #ff453a; }
-.chip.on { background: #fff; color: #000; }
-.chip.suit.red.on { color: #e0281c; }
+.chip.suit.red { color: #ff3b30; }
+.chip.on { background: #000; color: #fff; box-shadow: none; }
+.chip.suit.red.on { color: #fff; }
 .word-field { position: relative; }
-.word-field input { width: 100%; height: 54rem; border-radius: 12rem; border: 0; outline: 0; background: #2a2a2d; color: #fff;
+.word-field input { width: 100%; height: 54rem; border-radius: 12rem; border: 0; outline: 0; background: #fff; color: #000;
+  box-shadow: 0 0 0 0.6rem rgba(60, 60, 67, 0.14) inset;
   font: inherit; font-size: max(17px, 20rem); padding: 0 44rem 0 14rem; -webkit-user-select: text; user-select: text; }
-.word-field input::placeholder { color: #6f6f75; }
+.word-field input::placeholder { color: #8e8e93; }
 .word-field .clear { position: absolute; right: 8rem; top: 50%; transform: translateY(-50%); width: 30rem; height: 30rem;
-  border-radius: 50%; background: #48484c; color: #fff; font-size: 20rem; line-height: 30rem; }
+  border-radius: 50%; background: #c7c7cc; color: #fff; font-size: 20rem; line-height: 30rem; }
 .next { margin-top: auto; height: 54rem; border-radius: 14rem; background: #0a84ff; color: #fff; font-size: 18rem; font-weight: 600; flex: none; }
 .next:disabled { opacity: 0.35; }
-
-.bar-block { padding-bottom: 12rem; }
-.bar-row { display: flex; align-items: center; justify-content: space-between; gap: 10rem; font-size: 15rem; color: #c7c7cc; }
-.bar-row input { width: 58rem; height: 40rem; border-radius: 10rem; border: 0; outline: 0; background: #2a2a2d; color: #fff; text-align: center;
-  font: inherit; font-size: max(16px, 17rem); -webkit-user-select: text; user-select: text; -moz-appearance: textfield; }
-.bar-row input::-webkit-outer-spin-button, .bar-row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.net { display: flex; gap: 6rem; }
-.net .chip { height: 40rem; padding: 0 12rem; font-size: 15rem; }
-
-/* ---------- Barra de estado dibujada ---------- */
-.sb { position: absolute; left: 0; right: 0; top: 0; height: 62rem; color: #000; pointer-events: none; z-index: 5; }
-.sb-time { position: absolute; left: 0; width: 120rem; top: 21rem; line-height: 23rem; text-align: center; font-size: 17rem; font-weight: 600; letter-spacing: -0.2rem; }
-.sb-right { position: absolute; right: 31rem; top: 21rem; height: 23rem; display: flex; align-items: center; gap: 6rem; }
-.sb-bars { display: flex; align-items: flex-end; gap: 2rem; height: 12rem; }
-.sb-bars i { width: 3.2rem; border-radius: 1rem; background: #000; }
-.sb-bars i:nth-child(1) { height: 4.500rem; } .sb-bars i:nth-child(2) { height: 7rem; } .sb-bars i:nth-child(3) { height: 9.500rem; } .sb-bars i:nth-child(4) { height: 12rem; }
-.sb-net { font-size: 14.500rem; font-weight: 500; letter-spacing: 0.2rem; }
-.sb-wifi { width: 17rem; height: 13rem; }
-.sb-bat { position: relative; width: 26rem; height: 13rem; border-radius: 4.500rem; background: rgba(0, 0, 0, 0.28); overflow: hidden; }
-.sb-bat b { position: absolute; left: 0; top: 0; bottom: 0; background: #000; }
-.sb-bat em { position: absolute; inset: 0; text-align: center; font-style: normal; font-size: 11rem; font-weight: 700; line-height: 13rem; color: #fff; }
 
 /* ---------- Teléfono ---------- */
 .phone { background: var(--bg); color: var(--fg); }
@@ -134,20 +98,17 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .row .when { font-size: 15rem; color: var(--muted); }
 .empty { text-align: center; color: var(--muted); font-size: 20rem; font-weight: 600; margin-top: 220rem; }
 
-/* ---------- Llamada ---------- */
-.call-screen { color: #fff; background:
-  radial-gradient(120% 70% at 20% 0%, #3b4252 0%, rgba(59, 66, 82, 0) 60%),
-  radial-gradient(100% 60% at 90% 30%, #2a3342 0%, rgba(42, 51, 66, 0) 65%),
-  linear-gradient(#1b1e26, #07080a); }
-.call-head { position: absolute; left: 20rem; right: 20rem; top: max(calc(env(safe-area-inset-top) + 34rem), 96rem); text-align: center; }
+/* ---------- Llamada (modo claro) ---------- */
+.call-screen { color: #000; background: #fff; }
+.call-head { position: absolute; left: 20rem; right: 20rem; top: calc(env(safe-area-inset-top) + 70rem); text-align: center; }
 .call-number { font-size: 32rem; font-weight: 400; line-height: 38rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.call-status { margin-top: 4rem; font-size: 18rem; color: rgba(235, 235, 245, 0.62); font-variant-numeric: tabular-nums; }
+.call-status { margin-top: 4rem; font-size: 18rem; color: #8e8e93; font-variant-numeric: tabular-nums; }
 .call-grid { position: absolute; left: 50%; bottom: 92rem; transform: translateX(-50%);
   display: grid; grid-template-columns: repeat(3, 78rem); column-gap: 30rem; row-gap: 24rem; }
-.cbtn-wrap { display: flex; flex-direction: column; align-items: center; gap: 7rem; font-size: 13rem; font-weight: 500; }
-.cbtn { width: 78rem; height: 78rem; border-radius: 50%; background: rgba(255, 255, 255, 0.17); color: #fff;
-  display: flex; align-items: center; justify-content: center; -webkit-backdrop-filter: blur(20rem); backdrop-filter: blur(20rem); }
-.cbtn.on { background: #fff; color: #111; }
+.cbtn-wrap { display: flex; flex-direction: column; align-items: center; gap: 7rem; font-size: 13rem; font-weight: 500; color: #000; }
+.cbtn { width: 78rem; height: 78rem; border-radius: 50%; background: #e9e9eb; color: #000;
+  display: flex; align-items: center; justify-content: center; }
+.cbtn.on { background: #000; color: #fff; }
 .cbtn.hang { background: #ff3b30; color: #fff; }
 .cbtn.hang:active { filter: brightness(0.8); }
 
