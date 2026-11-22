@@ -407,6 +407,100 @@ function applyIcon(data) {
 }
 applyIcon(load("icono", null));
 
+// Guarda la captura calibrada. Devuelve false si no cabe en el almacenamiento.
+function guardarSkin(canvas, { k1, kh, call }) {
+  const ctx = canvas.getContext("2d");
+  // Color de fondo: un punto entre teclas, arriba a la derecha del 1.
+  const px = ctx.getImageData(Math.round(k1.x + (kh.x - k1.x) / 4), Math.round(k1.y - (kh.y - k1.y) / 6), 1, 1).data;
+  const dark = 0.299 * px[0] + 0.587 * px[1] + 0.114 * px[2] < 128;
+  let img = canvas.toDataURL("image/png");
+  if (img.length > 3000000) img = canvas.toDataURL("image/jpeg", 0.92);
+  try {
+    localStorage.setItem("skin", JSON.stringify({ iw: canvas.width, ih: canvas.height, img, k1, kh, call, dark, bg: `rgb(${px[0]},${px[1]},${px[2]})` }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Analiza la captura en el propio teléfono (sin enviarla a ningún servicio) y ubica el botón verde y las 12 teclas.
+function detectarTeclado(canvas) {
+  try {
+    const W = 402;
+    const k = canvas.width / W;
+    const H = Math.round(canvas.height / k);
+    const c = document.createElement("canvas");
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(canvas, 0, 0, W, H);
+    const d = ctx.getImageData(0, 0, W, H).data;
+    const at = (x, y) => { const i = (y * W + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
+
+    // 1. Botón verde de llamar: la mancha verde más grande de la mitad inferior.
+    let n = 0, sx = 0, sy = 0, minX = W, maxX = 0;
+    for (let y = Math.round(H * 0.45); y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const [r, g, b] = at(x, y);
+        if (g > 120 && g - r > 45 && g - b > 45) { n++; sx += x; sy += y; if (x < minX) minX = x; if (x > maxX) maxX = x; }
+      }
+    }
+    if (n < 1200) return null;
+    const call = { x: sx / n, y: sy / n };
+    const R = (maxX - minX) / 2;
+    if (R < 22 || R > 60) return null;
+
+    // 2. Zona de teclas: encima del botón verde, sin llegar al número marcado.
+    const y0 = Math.max(0, Math.round(call.y - 11.4 * R));
+    const y1 = Math.round(call.y - 1.35 * R);
+    const x0 = Math.max(0, Math.round(call.x - 4.3 * R));
+    const x1 = Math.min(W - 1, Math.round(call.x + 4.3 * R));
+    const bg = at(Math.round(call.x + 2.6 * R) < W ? Math.round(call.x + 2.6 * R) : W - 2, Math.round(call.y));
+    const lum = (p) => 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
+    const bgL = lum(bg);
+    const cols = new Array(W).fill(0);
+    const rows = new Array(H).fill(0);
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if (Math.abs(lum(at(x, y)) - bgL) > 95) { cols[x]++; rows[y]++; }
+      }
+    }
+    // Agrupa tramos con tinta, uniendo los separados por huecos pequeños.
+    const grupos = (arr, from, to, gap, min) => {
+      const out = [];
+      let ini = -1, fin = -1;
+      for (let i = from; i <= to; i++) {
+        if (arr[i] >= min) {
+          if (ini < 0) ini = i;
+          else if (i - fin > gap) { out.push([ini, fin]); ini = i; }
+          fin = i;
+        }
+      }
+      if (ini >= 0) out.push([ini, fin]);
+      return out.map(([a, b]) => (a + b) / 2);
+    };
+    const cx = grupos(cols, x0, x1, R * 0.7, 2);
+    const cy = grupos(rows, y0, y1, R * 0.7, 2);
+    if (cx.length !== 3 || cy.length !== 4) return null;
+    const dc = [cx[1] - cx[0], cx[2] - cx[1]];
+    const dr = [cy[1] - cy[0], cy[2] - cy[1], cy[3] - cy[2]];
+    const parejo = (v) => Math.max(...v) / Math.min(...v) < 1.18;
+    if (!parejo(dc) || !parejo(dr)) return null;
+    if (Math.abs(cx[1] - call.x) > R * 0.5) return null;
+    // El centro de cada tecla se toma de la rejilla uniforme, centrada en el botón verde.
+    const col = (cx[2] - cx[0]) / 2;
+    const row = (cy[3] - cy[0]) / 3;
+    const mid = (cy[0] + cy[3]) / 2;
+    return {
+      k1: { x: (call.x - col) * k, y: (mid - 1.5 * row) * k },
+      kh: { x: (call.x + col) * k, y: (mid + 1.5 * row) * k },
+      call: { x: call.x * k, y: call.y * k },
+    };
+  } catch {
+    return null;
+  }
+}
+
 function renderSettings() {
   setChrome("dark");
   app.className = "screen setup settings";
@@ -416,9 +510,9 @@ function renderSettings() {
     <div class="st-title">Ajustes</div>
     <section class="setup-block">
       <h2>Pantalla de marcado</h2>
-      <p class="st-help">Sube una captura del teclado de la app Teléfono de este iPhone, vacío y sin números marcados. Después tocas tres puntos para calibrarla.</p>
+      <p class="st-help">Sube una captura del teclado de la app Teléfono de este iPhone, vacío y sin números marcados. La app la analiza y ubica las teclas sola; si no lo logra, te pide tocar tres puntos.</p>
       <button class="st-btn" id="upPad">${sk ? "Cambiar captura" : "Subir captura del teclado"}</button>
-      ${sk ? '<button class="st-btn ghost" id="rmPad">Quitar y usar el diseño incluido</button>' : ""}
+      ${sk ? '<button class="st-btn ghost blue" id="calPad">Ajustar a mano</button><button class="st-btn ghost" id="rmPad">Quitar y usar el diseño incluido</button>' : ""}
     </section>
     <section class="setup-block">
       <h2>Ícono de la app</h2>
@@ -428,7 +522,23 @@ function renderSettings() {
     </section>
     <button class="next" id="back">Volver</button>`;
   app.querySelector("#back").addEventListener("click", () => go("setup"));
-  app.querySelector("#upPad").addEventListener("click", async () => { const im = await pickImage(); if (im) renderCalib(im); });
+  app.querySelector("#upPad").addEventListener("click", async () => {
+    const im = await pickImage();
+    if (!im) return;
+    const canvas = toCanvas(im);
+    const auto = detectarTeclado(canvas);
+    if (auto && guardarSkin(canvas, auto)) {
+      renderSettings();
+      showAlert("Teclado detectado y guardado.");
+    } else {
+      renderCalib(im);
+    }
+  });
+  app.querySelector("#calPad")?.addEventListener("click", () => {
+    const im = new Image();
+    im.onload = () => renderCalib(im);
+    im.src = sk.img;
+  });
   app.querySelector("#rmPad")?.addEventListener("click", () => { localStorage.removeItem("skin"); renderSettings(); });
   app.querySelector("#upIcon").addEventListener("click", async () => { const im = await pickImage(); if (im) renderIconPick(im); });
   app.querySelector("#rmIcon")?.addEventListener("click", () => { localStorage.removeItem("icono"); renderSettings(); });
@@ -459,14 +569,7 @@ function renderCalib(im) {
       puntos.length = 0;
       return paint();
     }
-    // Color de fondo: un punto entre teclas, arriba a la derecha del 1.
-    const px = canvas.getContext("2d").getImageData(Math.round(k1.x + (kh.x - k1.x) / 4), Math.round(k1.y - (kh.y - k1.y) / 6), 1, 1).data;
-    const dark = 0.299 * px[0] + 0.587 * px[1] + 0.114 * px[2] < 128;
-    let img = canvas.toDataURL("image/png");
-    if (img.length > 3000000) img = canvas.toDataURL("image/jpeg", 0.92);
-    try {
-      localStorage.setItem("skin", JSON.stringify({ ...sk, img, k1, kh, call, dark, bg: `rgb(${px[0]},${px[1]},${px[2]})` }));
-    } catch {
+    if (!guardarSkin(canvas, { k1, kh, call })) {
       showAlert("La captura pesa demasiado para guardarla. Prueba con otra.");
       return go("settings");
     }
