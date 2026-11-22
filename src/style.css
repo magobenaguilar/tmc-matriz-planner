@@ -161,3 +161,6 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .ip-ctl span { display: flex; gap: 8rem; }
 .ip-ctl .st-btn { height: 40rem; font-size: 15rem; margin-top: 0; }
 .st-btn.ghost.blue { color: #0a84ff; }
+
+/* Botón invisible para volver a la selección */
+.corner { position: absolute; right: 0; top: 0; width: 92rem; height: 92rem; z-index: 6; opacity: 0; }

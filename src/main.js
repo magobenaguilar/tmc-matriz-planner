@@ -12,13 +12,14 @@ const load = (k, fallback) => {
 };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } };
 
-const saved = load("secreto", {});
+// El secreto nunca se guarda: cada vez que se abre la app empieza en blanco.
+try { localStorage.removeItem("secreto"); } catch { /* sin almacenamiento */ }
 const state = {
   screen: "setup", // setup | phone | call
   tab: "key", // rec | con | key
-  valor: saved.valor || null,
-  palo: saved.palo || null,
-  palabra: saved.palabra || "",
+  valor: null,
+  palo: null,
+  palabra: "",
   number: "",
   recents: load("recientes", []),
 };
@@ -29,7 +30,16 @@ const secreto = () => {
   if (state.valor && state.palo) return { tipo: "carta", secreto: nombreCarta(state.valor, state.palo) };
   return null;
 };
-const persistSecreto = () => save("secreto", { valor: state.valor, palo: state.palo, palabra: state.palabra });
+const persistSecreto = () => {};
+// Vuelve a la selección con todo en blanco.
+function reiniciar() {
+  state.valor = null;
+  state.palo = null;
+  state.palabra = "";
+  state.number = "";
+  state.tab = "key";
+  go("setup");
+}
 
 /* ---------- Escala: 1rem = 1 punto del diseño (iPhone 17 Pro, 402 pt de ancho) ---------- */
 function fit() {
@@ -206,7 +216,9 @@ function renderPhone() {
         <span class="tab-label">${label}</span>
       </button>`).join("")}
     </nav>
-    <button class="search" id="search" aria-label="Buscar">${ICON.search(28)}</button>`;
+    <button class="search" id="search" aria-label="Buscar">${ICON.search(28)}</button>
+    <button class="corner" id="corner" tabindex="-1" aria-hidden="true"></button>`;
+  app.querySelector("#corner").addEventListener("click", reiniciar);
 
   app.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.tab; renderPhone(); }));
 
@@ -214,7 +226,7 @@ function renderPhone() {
   const search = app.querySelector("#search");
   let hold = null;
   const clearHold = () => { clearTimeout(hold); hold = null; };
-  search.addEventListener("pointerdown", () => { clearHold(); hold = setTimeout(() => go("setup"), 800); });
+  search.addEventListener("pointerdown", () => { clearHold(); hold = setTimeout(reiniciar, 800); });
   ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => search.addEventListener(ev, clearHold));
   search.addEventListener("contextmenu", (e) => e.preventDefault());
 
@@ -614,9 +626,11 @@ function renderSkinPhone(sk) {
     e.preventDefault();
     const { clientX: x, clientY: y } = e;
     const u = parseFloat(getComputedStyle(document.documentElement).fontSize);
-    // Control oculto: mantener presionada la esquina inferior derecha vuelve a la selección.
+    // Controles ocultos: un toque en la esquina superior derecha, o mantener presionada la inferior derecha,
+    // vuelven a la selección con todo en blanco.
+    if (x > window.innerWidth - 92 * u && y < 92 * u) return reiniciar();
     if (x > window.innerWidth - 100 * u && y > window.innerHeight - 110 * u) {
-      hold = setTimeout(() => go("setup"), 800);
+      hold = setTimeout(reiniciar, 800);
       return;
     }
     const key = keys.find((k) => near(k, x, y, r * 1.15));
