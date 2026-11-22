@@ -2,15 +2,16 @@
 export const AGENT_ID = "agent_2801m7yc2c5xe5eshnhvqf20kebw";
 
 // Así contesta el extraño: como si esperara otra llamada. Se elige uno al azar por llamada.
+// Sin preguntas (la voz las sobreactúa) y siempre de vos.
 export const SALUDOS = [
-  "¿Aló, mamá?",
-  "Hola, mamá, dime.",
+  "Aló, mamá.",
+  "Hola, mamá, decime.",
   "Hola, sí, ya voy saliendo.",
-  "¿Aló? Sí, ya casi llego.",
-  "Sí, ya estoy abajo, ¿dónde estás?",
-  "¿Aló? ¿Ya llegó el pedido?",
+  "Aló, sí, ya casi llego.",
+  "Sí, ya estoy abajo, aquí te espero.",
+  "Aló, sí, ya voy para allá.",
   "Hola, sí, en este momento salgo.",
-  "¿Aló? Dime, ya voy para allá.",
+  "Sí, decime, ya estoy llegando.",
 ];
 
 // Segundos de timbre antes de que conteste (mínimo y máximo)
