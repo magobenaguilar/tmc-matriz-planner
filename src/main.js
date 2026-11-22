@@ -103,6 +103,8 @@ function renderSetup() {
     </section>
     <button class="next" id="next">Next</button>`;
 
+  app.insertAdjacentHTML("afterbegin", '<button class="gear" id="gear" aria-label="Ajustes">Ajustes</button>');
+  app.querySelector("#gear").addEventListener("click", () => go("settings"));
   const input = app.querySelector("#word");
   const sync = () => {
     const s = secreto();
@@ -169,6 +171,8 @@ const KEYS = [
 ];
 
 function renderPhone() {
+  const sk = getSkin();
+  if (sk && state.tab === "key") return renderSkinPhone(sk);
   setChrome("phone");
   app.className = "screen phone";
   const hora = (ts) => new Date(ts).toLocaleTimeString("es", { hour: "numeric", minute: "2-digit" });
@@ -359,6 +363,228 @@ function renderCall() {
   paintCall();
 }
 
+/* ---------- Ajustes: apariencia tomada de capturas del propio iPhone ---------- */
+const getSkin = () => load("skin", null);
+
+function pickImage() {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.style.display = "none";
+    document.body.appendChild(input);
+    input.addEventListener("change", () => {
+      const file = input.files && input.files[0];
+      input.remove();
+      if (!file) return resolve(null);
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = () => resolve(null);
+      im.src = URL.createObjectURL(file);
+    });
+    input.click();
+  });
+}
+
+function toCanvas(im) {
+  const c = document.createElement("canvas");
+  c.width = im.naturalWidth;
+  c.height = im.naturalHeight;
+  c.getContext("2d").drawImage(im, 0, 0);
+  return c;
+}
+
+// La captura se ancla abajo y ocupa todo el ancho: así la franja de la barra de estado queda fuera de la vista.
+function skinGeo(sk) {
+  const scale = window.innerWidth / sk.iw;
+  const off = window.innerHeight - sk.ih * scale;
+  return { scale, off, S: (p) => ({ x: p.x * scale, y: off + p.y * scale }) };
+}
+
+function applyIcon(data) {
+  const link = document.querySelector('link[rel="apple-touch-icon"]');
+  if (link && data) link.setAttribute("href", data);
+}
+applyIcon(load("icono", null));
+
+function renderSettings() {
+  setChrome("dark");
+  app.className = "screen setup settings";
+  const sk = getSkin();
+  const ic = load("icono", null);
+  app.innerHTML = `
+    <div class="st-title">Ajustes</div>
+    <section class="setup-block">
+      <h2>Pantalla de marcado</h2>
+      <p class="st-help">Sube una captura del teclado de la app Teléfono de este iPhone, vacío y sin números marcados. Después tocas tres puntos para calibrarla.</p>
+      <button class="st-btn" id="upPad">${sk ? "Cambiar captura" : "Subir captura del teclado"}</button>
+      ${sk ? '<button class="st-btn ghost" id="rmPad">Quitar y usar el diseño incluido</button>' : ""}
+    </section>
+    <section class="setup-block">
+      <h2>Ícono de la app</h2>
+      <p class="st-help">Hazlo en Safari, antes de agregar la app a la pantalla de inicio. Sube una captura de tu pantalla de inicio y toca el ícono de Teléfono.</p>
+      <button class="st-btn" id="upIcon">${ic ? "Cambiar ícono" : "Subir captura de inicio"}</button>
+      ${ic ? `<div class="st-icon-row"><img src="${ic}" alt="" /><button class="st-btn ghost" id="rmIcon">Quitar ícono</button></div>` : ""}
+    </section>
+    <button class="next" id="back">Volver</button>`;
+  app.querySelector("#back").addEventListener("click", () => go("setup"));
+  app.querySelector("#upPad").addEventListener("click", async () => { const im = await pickImage(); if (im) renderCalib(im); });
+  app.querySelector("#rmPad")?.addEventListener("click", () => { localStorage.removeItem("skin"); renderSettings(); });
+  app.querySelector("#upIcon").addEventListener("click", async () => { const im = await pickImage(); if (im) renderIconPick(im); });
+  app.querySelector("#rmIcon")?.addEventListener("click", () => { localStorage.removeItem("icono"); renderSettings(); });
+}
+
+function renderCalib(im) {
+  const canvas = toCanvas(im);
+  const sk = { iw: canvas.width, ih: canvas.height };
+  const g = skinGeo(sk);
+  const pasos = ["Toca el centro de la tecla 1", "Toca el centro de la tecla #", "Toca el centro del botón verde de llamar"];
+  const puntos = [];
+  app.className = "screen calib";
+  app.innerHTML = `<img class="skin-img" src="${im.src}" style="height:${sk.ih * g.scale}px" alt="" />
+    <div class="calib-bar"><b id="paso"></b><span><button id="undo">Deshacer</button><button id="cancel">Cancelar</button></span></div>
+    <div id="marks"></div>`;
+  const paint = () => {
+    app.querySelector("#paso").textContent = `${puntos.length + 1} de 3 · ${pasos[puntos.length]}`;
+    app.querySelector("#marks").innerHTML = puntos.map((p) => { const s = g.S(p); return `<i class="mark" style="left:${s.x}px;top:${s.y}px"></i>`; }).join("");
+  };
+  app.querySelector("#cancel").addEventListener("click", (e) => { e.stopPropagation(); go("settings"); });
+  app.querySelector("#undo").addEventListener("click", (e) => { e.stopPropagation(); puntos.pop(); paint(); });
+  app.querySelector(".skin-img").addEventListener("pointerdown", (e) => {
+    puntos.push({ x: e.clientX / g.scale, y: (e.clientY - g.off) / g.scale });
+    if (puntos.length < 3) return paint();
+    const [k1, kh, call] = puntos;
+    if (kh.x - k1.x < sk.iw * 0.2 || kh.y - k1.y < sk.iw * 0.2) {
+      showAlert("Los puntos no cuadran. Toca primero el 1 y después el #.");
+      puntos.length = 0;
+      return paint();
+    }
+    // Color de fondo: un punto entre teclas, arriba a la derecha del 1.
+    const px = canvas.getContext("2d").getImageData(Math.round(k1.x + (kh.x - k1.x) / 4), Math.round(k1.y - (kh.y - k1.y) / 6), 1, 1).data;
+    const dark = 0.299 * px[0] + 0.587 * px[1] + 0.114 * px[2] < 128;
+    let img = canvas.toDataURL("image/png");
+    if (img.length > 3000000) img = canvas.toDataURL("image/jpeg", 0.92);
+    try {
+      localStorage.setItem("skin", JSON.stringify({ ...sk, img, k1, kh, call, dark, bg: `rgb(${px[0]},${px[1]},${px[2]})` }));
+    } catch {
+      showAlert("La captura pesa demasiado para guardarla. Prueba con otra.");
+      return go("settings");
+    }
+    go("settings");
+    showAlert("Teclado guardado.");
+  });
+  paint();
+}
+
+function renderSkinPhone(sk) {
+  setChrome("phone");
+  document.body.style.backgroundColor = sk.bg;
+  themeMeta.setAttribute("content", sk.bg);
+  app.className = "screen skin";
+  app.style.background = sk.bg;
+  const g = skinGeo(sk);
+  const col = (sk.kh.x - sk.k1.x) / 2;
+  const row = (sk.kh.y - sk.k1.y) / 3;
+  const r = Math.min(col, row) * 0.41 * g.scale;
+  const keys = KEYS.map(([d], i) => ({ d, ...g.S({ x: sk.k1.x + (i % 3) * col, y: sk.k1.y + Math.floor(i / 3) * row }) }));
+  const call = g.S(sk.call);
+  const del = { x: g.S(sk.kh).x, y: call.y };
+  const fg = sk.dark ? "#fff" : "#000";
+  app.innerHTML = `<img class="skin-img" src="${sk.img}" style="height:${sk.ih * g.scale}px" alt="" />
+    <div class="skin-num" id="number" style="top:${g.S({ x: 0, y: sk.k1.y - row * 1.2 }).y}px;color:${fg}"></div>
+    <div class="skin-del" id="del" hidden style="left:${del.x}px;top:${del.y}px;color:${fg}">${ICON.backspace(30)}</div>
+    <div class="skin-press" id="press" style="width:${2 * r}px;height:${2 * r}px;background:${sk.dark ? "rgba(255,255,255,.28)" : "rgba(0,0,0,.14)"}"></div>
+    <div class="skin-hit" id="hit"></div>`;
+  const numberEl = app.querySelector("#number");
+  const delEl = app.querySelector("#del");
+  const press = app.querySelector("#press");
+  const paint = () => {
+    numberEl.textContent = state.number;
+    const len = state.number.length;
+    numberEl.style.fontSize = `${len > 20 ? 20 : len > 15 ? 26 : len > 11 ? 31 : 36}rem`;
+    delEl.hidden = !len;
+  };
+  const near = (p, x, y, d) => Math.hypot(p.x - x, p.y - y) <= d;
+  let hold = null;
+  const hit = app.querySelector("#hit");
+  hit.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    const { clientX: x, clientY: y } = e;
+    const u = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    // Control oculto: mantener presionada la esquina inferior derecha vuelve a la selección.
+    if (x > window.innerWidth - 100 * u && y > window.innerHeight - 110 * u) {
+      hold = setTimeout(() => go("setup"), 800);
+      return;
+    }
+    const key = keys.find((k) => near(k, x, y, r * 1.15));
+    if (key) {
+      if (state.number.length >= 30) return;
+      playDtmf(key.d);
+      state.number += key.d;
+      press.style.left = `${key.x}px`;
+      press.style.top = `${key.y}px`;
+      press.classList.remove("fade");
+      press.classList.add("on");
+      return paint();
+    }
+    if (near(call, x, y, r * 1.15)) return startCall();
+    if (state.number && near(del, x, y, r)) {
+      state.number = state.number.slice(0, -1);
+      paint();
+      hold = setTimeout(() => { state.number = ""; paint(); }, 650);
+    }
+  });
+  ["pointerup", "pointerleave", "pointercancel"].forEach((ev) =>
+    hit.addEventListener(ev, () => { clearTimeout(hold); press.classList.add("fade"); press.classList.remove("on"); }),
+  );
+  paint();
+}
+
+function renderIconPick(im) {
+  const canvas = toCanvas(im);
+  const iw = canvas.width;
+  const ih = canvas.height;
+  const scale = Math.min(window.innerWidth / iw, (window.innerHeight - 190) / ih);
+  let centro = null;
+  let frac = 0.158;
+  app.className = "screen iconpick";
+  app.innerHTML = `<div class="ip-top"><b>Toca el ícono de Teléfono en tu captura</b></div>
+    <div class="ip-stage" style="width:${iw * scale}px;height:${ih * scale}px"><img src="${im.src}" alt="" /><i class="ip-box" id="box" hidden></i></div>
+    <div class="ip-panel">
+      <canvas id="prev" width="180" height="180"></canvas>
+      <div class="ip-ctl"><label>Tamaño<input id="size" type="range" min="0.11" max="0.22" step="0.002" value="${frac}" /></label>
+      <span><button class="st-btn ghost" id="ipCancel">Cancelar</button><button class="st-btn" id="ipUse" disabled>Usar ícono</button></span></div>
+    </div>`;
+  const prev = app.querySelector("#prev");
+  const box = app.querySelector("#box");
+  const draw = () => {
+    if (!centro) return;
+    const side = iw * frac;
+    prev.getContext("2d").clearRect(0, 0, 180, 180);
+    prev.getContext("2d").drawImage(canvas, centro.x - side / 2, centro.y - side / 2, side, side, 0, 0, 180, 180);
+    box.hidden = false;
+    box.style.width = box.style.height = `${side * scale}px`;
+    box.style.left = `${centro.x * scale}px`;
+    box.style.top = `${centro.y * scale}px`;
+    app.querySelector("#ipUse").disabled = false;
+  };
+  const stage = app.querySelector(".ip-stage");
+  stage.addEventListener("pointerdown", (e) => {
+    const rect = stage.getBoundingClientRect();
+    centro = { x: (e.clientX - rect.left) / scale, y: (e.clientY - rect.top) / scale };
+    draw();
+  });
+  app.querySelector("#size").addEventListener("input", (e) => { frac = Number(e.target.value); draw(); });
+  app.querySelector("#ipCancel").addEventListener("click", () => go("settings"));
+  app.querySelector("#ipUse").addEventListener("click", () => {
+    const data = prev.toDataURL("image/png");
+    save("icono", data);
+    applyIcon(data);
+    go("settings");
+    showAlert("Ícono listo. Ahora, en Safari: Compartir y Agregar a inicio.");
+  });
+}
+
 /* ---------- Utilidades ---------- */
 function showAlert(text) {
   document.querySelector(".alert-layer")?.remove();
@@ -371,6 +597,8 @@ function showAlert(text) {
 
 function go(screen) {
   state.screen = screen;
+  app.style.background = "";
+  if (screen === "settings") return renderSettings();
   if (screen === "setup") renderSetup();
   else if (screen === "phone") renderPhone();
   else renderCall();
