@@ -5,13 +5,13 @@ export const AGENT_ID = "agent_2801m7yc2c5xe5eshnhvqf20kebw";
 // Sin preguntas (la voz las sobreactúa) y siempre de vos.
 export const SALUDOS = [
   "Aló, mamá.",
-  "Hola, mamá, decime.",
+  "Hola, mamá, ya voy.",
   "Hola, sí, ya voy saliendo.",
   "Aló, sí, ya casi llego.",
   "Sí, ya estoy abajo, aquí te espero.",
   "Aló, sí, ya voy para allá.",
   "Hola, sí, en este momento salgo.",
-  "Sí, decime, ya estoy llegando.",
+  "Sí, ya estoy llegando.",
 ];
 
 // Segundos de timbre antes de que conteste (mínimo y máximo)
