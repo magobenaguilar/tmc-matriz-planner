@@ -1,6 +1,31 @@
 // Sonidos del teléfono generados con Web Audio: tonos de tecla, timbre de espera, clic y fin de llamada.
 let ctx = null;
 
+// En iPhone, el interruptor de silencio apaga el audio web. El modo "playback" lo evita para los tonos del
+// teclado y el timbre; durante la llamada se vuelve a "auto" para que el micrófono funcione como siempre.
+export function setAudioMode(mode) {
+  try { if (navigator.audioSession) navigator.audioSession.type = mode; } catch { /* no disponible */ }
+}
+
+// Respaldo para iOS sin audioSession: un audio silencioso en bucle mantiene la salida activa aun en silencio.
+let keepAlive = null;
+export function unlockAudio() {
+  getCtx();
+  if (navigator.audioSession || keepAlive) return;
+  try {
+    const rate = 8000, n = rate / 2, buf = new Uint8Array(44 + n);
+    const dv = new DataView(buf.buffer);
+    const w = (o, t) => [...t].forEach((ch, i) => dv.setUint8(o + i, ch.charCodeAt(0)));
+    w(0, "RIFF"); dv.setUint32(4, 36 + n, true); w(8, "WAVEfmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true);
+    dv.setUint16(22, 1, true); dv.setUint32(24, rate, true); dv.setUint32(28, rate, true); dv.setUint16(32, 1, true);
+    dv.setUint16(34, 8, true); w(36, "data"); dv.setUint32(40, n, true); buf.fill(128, 44);
+    keepAlive = new Audio(URL.createObjectURL(new Blob([buf], { type: "audio/wav" })));
+    keepAlive.loop = true;
+    keepAlive.setAttribute("playsinline", "");
+    keepAlive.play().catch(() => { keepAlive = null; });
+  } catch { /* sin respaldo */ }
+}
+
 export function getCtx() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -10,8 +35,18 @@ export function getCtx() {
   return ctx;
 }
 
-function tone(freqs, { start = 0, dur = 0.12, vol = 0.08, dest } = {}) {
+function tone(freqs, opts = {}) {
   const c = getCtx();
+  if (c.state !== "running") {
+    // Contexto dormido (pasa en iOS al volver a la app): se despierta y se toca en cuanto esté listo.
+    const pending = { oscs: [], gain: null };
+    c.resume().then(() => Object.assign(pending, playTone(c, freqs, opts))).catch(() => {});
+    return pending;
+  }
+  return playTone(c, freqs, opts);
+}
+
+function playTone(c, freqs, { start = 0, dur = 0.12, vol = 0.08, dest } = {}) {
   const t0 = c.currentTime + start;
   const g = c.createGain();
   g.gain.setValueAtTime(0, t0);

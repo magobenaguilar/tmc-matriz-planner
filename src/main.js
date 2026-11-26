@@ -1,7 +1,7 @@
 import "./style.css";
 import { Conversation } from "@elevenlabs/client";
 import { AGENT_ID, SALUDOS, RING_MIN_MS, RING_MAX_MS, RING_TIMEOUT_MS, VALORES, PALOS, nombreCarta } from "./config.js";
-import { getCtx, playDtmf, startRingback, playPickup, playEndBeep } from "./audio.js";
+import { getCtx, playDtmf, startRingback, playPickup, playEndBeep, setAudioMode, unlockAudio } from "./audio.js";
 
 const app = document.getElementById("app");
 const themeMeta = document.querySelector('meta[name="theme-color"]');
@@ -60,12 +60,14 @@ let micPending = null;
 function requestMic() {
   if (micGranted) return Promise.resolve();
   if (!micPending) {
+    setAudioMode("auto");
     micPending = navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream) => {
         // Se sueltan las pistas para que no quede el indicador de micrófono encendido en el teclado.
         stream.getTracks().forEach((t) => t.stop());
         micGranted = true;
+        if (!call) setAudioMode("playback");
       })
       .finally(() => { micPending = null; });
   }
@@ -134,7 +136,7 @@ function renderSetup() {
   };
 
   // El primer toque en esta pantalla dispara el permiso del micrófono.
-  app.addEventListener("pointerdown", () => { getCtx(); requestMic().catch(() => {}); }, { once: true });
+  app.addEventListener("pointerdown", () => { unlockAudio(); requestMic().catch(() => {}); }, { once: true });
 
   app.querySelectorAll("[data-valor], [data-palo]").forEach((b) =>
     b.addEventListener("click", () => {
@@ -165,6 +167,8 @@ function renderSetup() {
       return;
     }
     input.blur();
+    unlockAudio();
+    if (micGranted) setAudioMode("playback");
     state.tab = "key";
     state.number = "";
     go("phone");
@@ -275,6 +279,7 @@ async function startCall() {
     showAlert("Teléfono necesita acceso al micrófono");
     return;
   }
+  setAudioMode("auto"); // durante la llamada, micrófono y altavoz como siempre
   const dato = secreto() || { tipo: "carta", secreto: "siete de corazones" };
   call = { number: state.number, phase: "ringing", secs: 0, muted: false, conv: null, ended: false, timers: [], wake: null, stopRing: null };
   go("call");
@@ -347,6 +352,7 @@ function endCall() {
   save("recientes", state.recents);
   setTimeout(() => {
     call = null;
+    if (micGranted) setAudioMode("playback");
     state.number = "";
     state.tab = "key";
     go("phone");
