@@ -304,12 +304,20 @@ async function startCall() {
           current.tick = setInterval(() => { current.secs += 1; paintCall(); }, 1000);
           paintCall();
         },
+        // Mientras el extraño habla, el micrófono se cierra: así no lo cortan su propia voz saliendo por el
+        // altavoz ni las voces del público. Se reabre un instante después de que termina.
+        onModeChange: ({ mode }) => {
+          current.agentSpeaking = mode === "speaking";
+          clearTimeout(current.micTimer);
+          if (current.agentSpeaking) applyMic(current);
+          else current.micTimer = setTimeout(() => applyMic(current), 350);
+        },
         onDisconnect: () => { if (current.phase === "live") endCall(); },
         onError: () => { if (current.phase === "live") endCall(); },
       });
       current.conv = conv;
       if (current.ended) conv.endSession().catch(() => {});
-      else if (current.muted) conv.setMicMuted?.(true);
+      else applyMic(current);
     } catch (err) {
       console.warn("sin conexión", err?.message || err); // sigue timbrando hasta el límite
     }
@@ -317,11 +325,17 @@ async function startCall() {
   current.timers.push(setTimeout(() => { if (current.phase === "ringing") endCall(); }, RING_TIMEOUT_MS));
 }
 
+// El micrófono queda cerrado si el usuario pulsó Silenciar o si el extraño está hablando.
+function applyMic(c) {
+  try { c.conv?.setMicMuted?.(!!(c.muted || c.agentSpeaking)); } catch { /* sesión cerrada */ }
+}
+
 function endCall() {
   const c = call;
   if (!c || c.ended) return;
   c.ended = true;
   c.timers.forEach(clearTimeout);
+  clearTimeout(c.micTimer);
   clearInterval(c.tick);
   c.stopRing?.();
   c.conv?.endSession().catch(() => {});
@@ -367,7 +381,7 @@ function renderCall() {
       const on = b.classList.toggle("on");
       if (b.dataset.c === "mute" && call) {
         call.muted = on;
-        call.conv?.setMicMuted?.(on);
+        applyMic(call);
       }
     }),
   );
