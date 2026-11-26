@@ -2,16 +2,17 @@
 export const AGENT_ID = "agent_2801m7yc2c5xe5eshnhvqf20kebw";
 
 // Así contesta el extraño: como si esperara otra llamada. Se elige uno al azar por llamada.
-// Sin preguntas (la voz las sobreactúa) y siempre de vos.
+// Sin preguntas (la voz las sobreactúa), con pocas comas y sin verbos en segunda persona.
+// La marca entre corchetes no se pronuncia: le indica al modelo de voz V4 el tono de la frase.
 export const SALUDOS = [
-  "Aló, mamá.",
-  "Hola, mamá, ya voy.",
-  "Hola, sí, ya voy saliendo.",
-  "Aló, sí, ya casi llego.",
-  "Sí, ya estoy abajo, aquí te espero.",
-  "Aló, sí, ya voy para allá.",
-  "Hola, sí, en este momento salgo.",
-  "Sí, ya estoy llegando.",
+  "[casual] Aló, mamá.",
+  "[casual] Hola mamá. Ya voy.",
+  "[casual] Hola. Ya voy saliendo.",
+  "[casual] Aló. Sí, ya casi llego.",
+  "[casual] Sí, ya estoy abajo. Aquí espero.",
+  "[casual] Aló. Ya voy para allá.",
+  "[tired] Hola. En este momento salgo.",
+  "[casual] Sí. Ya estoy llegando.",
 ];
 
 // Segundos de timbre antes de que conteste (mínimo y máximo)
